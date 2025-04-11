@@ -1,0 +1,88 @@
+volumes:
+  postgres_storage:
+  qdrant_storage:
+  pipelines_storage:
+  langflow_storage:
+  open-webui:
+
+networks:
+  demo:
+
+services:
+  open-webui:
+    image: mathieuawels/openwebui-awels:latest
+    networks: ['demo']
+    restart: unless-stopped
+    container_name: open-webui
+    ports:
+      - "3000:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - open-webui:/app/backend/data
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    networks: ['demo']
+    restart: unless-stopped
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_storage:/var/lib/postgresql/data
+      - ./postgres-config/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  langflow:
+    image: langflowai/langflow:latest
+    container_name: langflow
+    networks: ['demo']
+    restart: unless-stopped
+    ports:
+      - "7860:7860"
+    volumes:
+      - langflow_storage:/data
+    environment:
+      - LANGFLOW_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+
+
+  qdrant:
+    image: qdrant/qdrant
+    container_name: qdrant
+    networks: ['demo']
+    restart: unless-stopped
+    ports:
+      - 6333:6333
+    volumes:
+      - qdrant_storage:/qdrant/storage
+  pipelines:
+    build:
+      context: ./pipelines
+      dockerfile: Dockerfile
+      args:
+        MINIMUM_BUILD: "true"
+        USE_CUDA: "false"
+        USE_CUDA_VER: "cpu"
+    container_name: pipelines
+    hostname: pipelines
+    networks: ['demo']
+    restart: always
+    ports:
+      - 9099:9099
+    volumes:
+      - pipelines_storage:/app/pipelines
+    environment:
+      - HOST=0.0.0.0
+      - PORT=9099
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - qdrant
