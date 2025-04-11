@@ -1,4 +1,4 @@
-name: Deploy Docker Stack to Scaleway
+name: Deploy Docker Stack
 
 on:
   push:
@@ -9,23 +9,21 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to Scaleway
+    name: Deploy Docker Stack
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Install Scaleway CLI
-      run: |
-        curl -sL https://github.com/scaleway/scaleway-cli/releases/latest/download/scaleway-cli_$(uname -s)_$(uname -m).tar.gz | tar xz -C /usr/local/bin
-        scw -v
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
 
-    - name: Login to Scaleway
-      env:
-        SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
-        SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
-      run: scw init non-interactive --access-key "$SCW_ACCESS_KEY" --secret-key "$SCW_SECRET_KEY" --region fr-par
+    - name: Login to Docker Hub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
     - name: Deploy Docker Stack
       run: |
