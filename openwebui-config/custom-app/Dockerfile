@@ -31,6 +31,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# ----> ici on force 4 096 Mo de heap (ou plus si besoin)
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 COPY . .
 ENV APP_BUILD_HASH=${BUILD_HASH}
 RUN npm run build
